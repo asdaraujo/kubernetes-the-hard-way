@@ -47,17 +47,18 @@ gcloud compute addresses list --filter="name=('${IP_ADDRESS}')"
 
 ### Kubernetes Controllers
 
-logmsg "Create three compute instances which will host the Kubernetes control plane:"
+logmsg "Create compute instances which will host the Kubernetes control plane:"
 
-for i in ${CONTROLLER_PREFIX}-{0..2}; do
-  gcloud compute instances create ${i} \
+for instance in "${ALL_CONTROLLERS[@]}"; do
+  logmsg "Creating $instance"
+  gcloud compute instances create ${instance} \
     --async \
     --boot-disk-size 200GB \
     --can-ip-forward \
     --image-family ubuntu-2004-lts \
     --image-project ubuntu-os-cloud \
     --machine-type e2-standard-2 \
-    --private-network-ip 10.240.0.1${i##*-} \
+    --private-network-ip $(private_ip $instance) \
     --scopes compute-rw,storage-ro,service-management,service-control,logging-write,monitoring \
     --subnet ${SUBNET} \
     --tags ${NAMESPACE},controller
@@ -65,18 +66,19 @@ done
 
 ### Kubernetes Workers
 
-logmsg "Create three compute instances which will host the Kubernetes worker nodes:"
+logmsg "Create compute instances which will host the Kubernetes worker nodes:"
 
-for i in ${WORKER_PREFIX}-{0..2}; do
-  gcloud compute instances create ${i} \
+for instance in "${ALL_WORKERS[@]}"; do
+  logmsg "Creating $instance"
+  gcloud compute instances create ${instance} \
     --async \
     --boot-disk-size 200GB \
     --can-ip-forward \
     --image-family ubuntu-2004-lts \
     --image-project ubuntu-os-cloud \
     --machine-type e2-standard-2 \
-    --metadata pod-cidr=10.200.${i##*-}.0/24 \
-    --private-network-ip 10.240.0.2${i##*-} \
+    --metadata pod-cidr=$(pod_cidr $instance) \
+    --private-network-ip $(private_ip $instance) \
     --scopes compute-rw,storage-ro,service-management,service-control,logging-write,monitoring \
     --subnet ${SUBNET} \
     --tags ${NAMESPACE},worker
@@ -92,6 +94,6 @@ gcloud compute instances list --filter="tags.items=${NAMESPACE}"
 
 logmsg "Test SSH access to the compute instances:"
 
-for i in ${CONTROLLER_PREFIX}-{0..2} ${WORKER_PREFIX}-{0..2}; do
-  gcloud compute ssh ${i} --ssh-key-file=${SSH_KEY_FILE} --command="mkdir -p certs config kubeconfig; hostname"
+for instance in "${ALL_CONTROLLERS[@]}" "${ALL_WORKERS[@]}"; do
+  gcloud compute ssh ${instance} --ssh-key-file=${SSH_KEY_FILE} --command="mkdir -p certs config kubeconfig; hostname"
 done

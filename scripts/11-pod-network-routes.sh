@@ -8,7 +8,7 @@ source $BASE_DIR/defaults.sh
 
 logmsg "Print the internal IP address and Pod CIDR range for each worker instance:"
 
-for instance in ${WORKER_PREFIX}-{0..2}; do
+for instance in "${ALL_WORKERS[@]}"; do
   gcloud compute instances describe ${instance} \
     --format 'value[separator=" "](networkInterfaces[0].networkIP,metadata.items[0].value)'
 done
@@ -17,11 +17,11 @@ done
 
 logmsg "Create network routes for each worker instance:"
 
-for i in 0 1 2; do
-  gcloud compute routes create ${NAMESPACE}-route-10-200-${i}-0-24 \
+for instance in "${ALL_WORKERS[@]}"; do
+  gcloud compute routes create ${NAMESPACE}-route-$(echo $(pod_cidr $instance) | sed 's/[^0-9]/-/g') \
     --network ${NETWORK} \
-    --next-hop-address 10.240.0.2${i} \
-    --destination-range 10.200.${i}.0/24
+    --next-hop-address $(private_ip $instance) \
+    --destination-range $(pod_cidr $instance)
 done
 
 logmsg "List the routes in the  VPC network:"

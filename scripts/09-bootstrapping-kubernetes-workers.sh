@@ -238,11 +238,13 @@ sudo systemctl restart containerd kubelet kube-proxy
 CMDEOF
 )
 
-for instance in ${WORKER_PREFIX}-{0..2}; do
-  gcloud compute ssh ${instance} --ssh-key-file=${SSH_KEY_FILE} --command="$CMD"
+for instance in "${ALL_WORKERS[@]}"; do
+  gcloud compute ssh ${instance} --ssh-key-file=${SSH_KEY_FILE} --command="$CMD" &
 done
+
+wait
 
 logmsg "Verification: List the registered Kubernetes nodes"
 
-gcloud compute ssh --ssh-key-file=~/.ssh/id_rsa ${CONTROLLER_PREFIX}-0 \
+gcloud compute ssh --ssh-key-file=~/.ssh/id_rsa ${ALL_CONTROLLERS[@]:0:1} \
   --command "kubectl get nodes --kubeconfig ~/kubeconfig/admin.kubeconfig"

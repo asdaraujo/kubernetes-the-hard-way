@@ -209,6 +209,10 @@ logmsg "Create a busybox deployment:"
 
 kubectl run busybox --image=busybox:1.28 --command -- sleep 3600 || true
 
+logmsg "Wait for the busybox pod to be running"
+
+kubectl wait pod -l run=busybox --for=jsonpath='{.status.phase}'=Running
+
 logmsg "List the pod created by the busybox deployment:"
 
 kubectl get pods -l run=busybox
@@ -223,5 +227,5 @@ kubectl exec -ti $POD_NAME -- nslookup kubernetes || true
 
 logmsg "Delete the busybox deployment:"
 
-kubectl get pods delete ${POD_NAME}
+kubectl delete pods ${POD_NAME}
 

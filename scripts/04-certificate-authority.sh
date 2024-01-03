@@ -81,7 +81,7 @@ cfssl gencert \
 
 ### The Kubelet Client Certificates
 
-for instance in ${WORKER_PREFIX}-{0..2}; do
+for instance in "${ALL_WORKERS[@]}"; do
   logmsg "Generate a certificate and private key for Kubernetes worker node: $instance"
   cat > ${CONFIG_DIR}/${instance}-csr.json <<EOF
 {
@@ -236,11 +236,19 @@ cat > ${CONFIG_DIR}/kubernetes-csr.json <<EOF
 }
 EOF
 
+LIST_OF_CONTROLLER_IPS=""
+for h in "${ALL_CONTROLLERS[@]}"; do
+  if [[ ! -z $LIST_OF_CONTROLLER_IPS ]]; then
+    LIST_OF_CONTROLLER_IPS="${LIST_OF_CONTROLLER_IPS},"
+  fi
+  LIST_OF_CONTROLLER_IPS="${LIST_OF_CONTROLLER_IPS}$(private_ip $h)"
+done
+
 cfssl gencert \
   -ca=${CERTS_DIR}/ca.pem \
   -ca-key=${CERTS_DIR}/ca-key.pem \
   -config=${CONFIG_DIR}/ca-config.json \
-  -hostname=10.32.0.1,10.240.0.10,10.240.0.11,10.240.0.12,${KUBERNETES_PUBLIC_ADDRESS},127.0.0.1,${KUBERNETES_HOSTNAMES} \
+  -hostname=10.32.0.1,${LIST_OF_CONTROLLER_IPS},${KUBERNETES_PUBLIC_ADDRESS},127.0.0.1,${KUBERNETES_HOSTNAMES} \
   -profile=kubernetes \
   ${CONFIG_DIR}/kubernetes-csr.json 2> >(filter_stderr >&2) | cfssljson -bare ${CERTS_DIR}/kubernetes
 
@@ -276,12 +284,12 @@ cfssl gencert \
 
 ## Distribute the Client and Server Certificates
 
-for instance in ${WORKER_PREFIX}-{0..2}; do
+for instance in "${ALL_WORKERS[@]}"; do
   logmsg "Copy the appropriate certificates and private keys to worker instance: $instance"
   gcloud compute scp --ssh-key-file=${SSH_KEY_FILE} ${CERTS_DIR}/{ca.pem,${instance}-key.pem,${instance}.pem} ${instance}:~/certs/
 done
 
-for instance in ${CONTROLLER_PREFIX}-{0..2}; do
+for instance in "${ALL_CONTROLLERS[@]}"; do
   logmsg "Copy the appropriate certificates and private keys to controller instance: $instance"
   gcloud compute scp --ssh-key-file=${SSH_KEY_FILE} ${CERTS_DIR}/{ca.pem,ca-key.pem,kubernetes-key.pem,kubernetes.pem,service-account-key.pem,service-account.pem} ${instance}:~/certs/
 done

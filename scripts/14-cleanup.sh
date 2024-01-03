@@ -2,16 +2,29 @@
 BASE_DIR=$(cd $(dirname $0); pwd -L)
 source $BASE_DIR/defaults.sh
 
-## Networking
+logmsg "Delete the external load balancer network resources:"
 
-#logmsg "Delete the external load balancer network resources:"
-#
-#gcloud -q compute forwarding-rules delete kubernetes-forwarding-rule \
-#  --region $(gcloud config get-value compute/region)
+INSTANCES=$(gcloud -q compute forwarding-rules list --filter=name:${NAMESPACE}- --format="value(name)")
+if [[ ! -z ${INSTANCES} ]]; then
+  gcloud -q compute forwarding-rules delete \
+    ${INSTANCES} || true
+fi
 
-#gcloud -q compute target-pools delete kubernetes-target-pool
+logmsg "Delete the target pool resources:"
 
-#gcloud -q compute http-health-checks delete kubernetes
+INSTANCES=$(gcloud -q compute target-pools list --filter=name:${NAMESPACE}- --format="value(name)")
+if [[ ! -z ${INSTANCES} ]]; then
+  gcloud -q compute target-pools delete \
+    ${INSTANCES} || true
+fi
+
+logmsg "Delete the HTTP health check resources:"
+
+INSTANCES=$(gcloud -q compute http-health-checks list --filter=name:${NAMESPACE}- --format="value(name)")
+if [[ ! -z ${INSTANCES} ]]; then
+  gcloud -q compute http-health-checks delete \
+    ${INSTANCES} || true
+fi
 
 logmsg "Delete the network routes:"
 
@@ -33,7 +46,7 @@ fi
 
 logmsg "Delete the static ip address:"
 
-INSTANCES=$(gcloud -q compute addresses list --filter=network:${NETWORK} --format="value(name)")
+INSTANCES=$(gcloud -q compute addresses list --filter=name:${IP_ADDRESS} --format="value(name)")
 if [[ ! -z ${INSTANCES} ]]; then
   gcloud -q compute addresses delete ${INSTANCES} || true
 fi

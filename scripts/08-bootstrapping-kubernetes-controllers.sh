@@ -11,6 +11,14 @@ KUBERNETES_PUBLIC_ADDRESS=$(gcloud compute addresses describe ${IP_ADDRESS} \
   --region $REGION \
   --format 'value(address)')
 
+ETCD_SERVERS=""
+for h in "${ALL_CONTROLLERS[@]}"; do
+  if [[ ! -z $ETCD_SERVERS ]]; then
+    ETCD_SERVERS="${ETCD_SERVERS},"
+  fi
+  ETCD_SERVERS="${ETCD_SERVERS}https://$(private_ip $h):2379"
+done
+
 CMD=$(cat <<CMDEOF
 set -o errexit; set -o nounset; set -o pipefail
 C_NORMAL="\$(echo -e "\033[0m")"; C_YELLOW="\$(echo -e "\033[33m")"
@@ -67,7 +75,7 @@ ExecStart=/usr/local/bin/kube-apiserver \\
   --etcd-cafile=/var/lib/kubernetes/ca.pem \\
   --etcd-certfile=/var/lib/kubernetes/kubernetes.pem \\
   --etcd-keyfile=/var/lib/kubernetes/kubernetes-key.pem \\
-  --etcd-servers=https://10.240.0.10:2379,https://10.240.0.11:2379,https://10.240.0.12:2379 \\
+  --etcd-servers=${ETCD_SERVERS} \\
   --event-ttl=1h \\
   --encryption-provider-config=/var/lib/kubernetes/encryption-config.yaml \\
   --kubelet-certificate-authority=/var/lib/kubernetes/ca.pem \\
@@ -209,9 +217,11 @@ curl -s -H "Host: kubernetes.default.svc.cluster.local" -i http://127.0.0.1/heal
 CMDEOF
 )
 
-for instance in ${CONTROLLER_PREFIX}-{0..2}; do
-  gcloud compute ssh ${instance} --ssh-key-file=${SSH_KEY_FILE} --command="$CMD"
+for instance in "${ALL_CONTROLLERS[@]}"; do
+  gcloud compute ssh ${instance} --ssh-key-file=${SSH_KEY_FILE} --command="$CMD" &
 done
+
+wait
 
 ## RBAC for Kubelet Authorization
 
@@ -291,7 +301,7 @@ gcloud compute target-pools create ${TARGET_POOL} \
 logmsg "Add backend instances to the target pool:"
 
 gcloud compute target-pools add-instances ${TARGET_POOL} \
- --instances ${CONTROLLER_PREFIX}-0,${CONTROLLER_PREFIX}-1,${CONTROLLER_PREFIX}-2 \
+ --instances $(IFS=,; set -- "${ALL_CONTROLLERS[@]}"; echo "$*") \
  --instances-zone ${ZONE}
 
 logmsg "Create forwarding rules:"
@@ -311,4 +321,4 @@ curl -i -s --cacert ~/certs/ca.pem https://${KUBERNETES_PUBLIC_ADDRESS}:6443/ver
 CMDEOF
 )
 
-gcloud compute ssh ${CONTROLLER_PREFIX}-0 --ssh-key-file=${SSH_KEY_FILE} --command="$CMD"
+gcloud compute ssh ${ALL_CONTROLLERS[@]:0:1} --ssh-key-file=${SSH_KEY_FILE} --command="$CMD"

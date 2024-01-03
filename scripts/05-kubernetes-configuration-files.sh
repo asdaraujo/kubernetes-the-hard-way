@@ -16,7 +16,7 @@ KUBERNETES_PUBLIC_ADDRESS=$(gcloud compute addresses describe ${IP_ADDRESS} \
 
 logmsg "Generate a kubeconfig file for each worker node:"
 
-for instance in ${WORKER_PREFIX}-{0..2}; do
+for instance in "${ALL_WORKERS[@]}"; do
   kubectl config set-cluster ${NAMESPACE} \
     --certificate-authority=${CERTS_DIR}/ca.pem \
     --embed-certs=true \
@@ -131,12 +131,12 @@ kubectl config use-context default --kubeconfig=${KUBECONFIG_DIR}/admin.kubeconf
 
 ## Distribute the Kubernetes Configuration Files
 
-for instance in ${WORKER_PREFIX}-{0..2}; do
+for instance in "${ALL_WORKERS[@]}"; do
   logmsg "Copy the appropriate kubelet and kube-proxy kubeconfig files to worker instance: $instance"
   gcloud compute scp --ssh-key-file=${SSH_KEY_FILE} ${KUBECONFIG_DIR}/{${instance}.kubeconfig,kube-proxy.kubeconfig} ${instance}:~/kubeconfig/
 done
 
-for instance in ${CONTROLLER_PREFIX}-{0..2}; do
+for instance in "${ALL_CONTROLLERS[@]}"; do
   logmsg "Copy the appropriate kube-controller-manager and kube-scheduler kubeconfig files to controller instance: $instance"
   gcloud compute scp --ssh-key-file=${SSH_KEY_FILE} ${KUBECONFIG_DIR}/{admin.kubeconfig,kube-controller-manager.kubeconfig,kube-scheduler.kubeconfig} ${instance}:~/kubeconfig/
 done

@@ -26,7 +26,7 @@ resources:
       - identity: {}
 EOF
 
-for instance in ${CONTROLLER_PREFIX}-{0..2}; do
+for instance in "${ALL_CONTROLLERS[@]}"; do
   logmsg "Copy the encryption-config.yaml encryption config file to controller instance: $instance"
   gcloud compute scp --ssh-key-file=${SSH_KEY_FILE} ${CONFIG_DIR}/encryption-config.yaml ${instance}:~/config/
 done

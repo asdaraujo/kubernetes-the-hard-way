@@ -17,7 +17,7 @@ kubectl create secret generic ${NAMESPACE} \
 
 logmsg "Print a hexdump of the secret stored in etcd:"
 
-gcloud compute ssh --ssh-key-file=${SSH_KEY_FILE} ${CONTROLLER_PREFIX}-0 \
+gcloud compute ssh --ssh-key-file=${SSH_KEY_FILE} ${ALL_CONTROLLERS[@]:0:1} \
   --command "sudo ETCDCTL_API=3 etcdctl get \
   --endpoints=https://127.0.0.1:2379 \
   --cacert=/etc/etcd/ca.pem \
@@ -98,7 +98,7 @@ gcloud compute firewall-rules create ${FW_NGINX} \
 
 logmsg "Retrieve the external IP address of a worker instance:"
 
-EXTERNAL_IP=$(gcloud compute instances describe ${WORKER_PREFIX}-0 \
+EXTERNAL_IP=$(gcloud compute instances describe ${ALL_WORKERS[@]:0:1} \
   --format 'value(networkInterfaces[0].accessConfigs[0].natIP)')
 echo "EXTERNAL_IP=$EXTERNAL_IP"
 

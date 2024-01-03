@@ -7,6 +7,14 @@ source $BASE_DIR/defaults.sh
 ETCD_VER=v3.5.11
 GOOGLE_URL=https://storage.googleapis.com/etcd
 
+INITIAL_CLUSTER=""
+for h in "${ALL_CONTROLLERS[@]}"; do
+  if [[ ! -z $INITIAL_CLUSTER ]]; then
+    INITIAL_CLUSTER="$INITIAL_CLUSTER,"
+  fi
+  INITIAL_CLUSTER="$INITIAL_CLUSTER${h}=https://$(private_ip $h):2380"
+done
+
 CMD=$(cat <<CMDEOF
 set -o errexit; set -o nounset; set -o pipefail
 C_NORMAL="\$(echo -e "\033[0m")"; C_YELLOW="\$(echo -e "\033[33m")"
@@ -63,7 +71,7 @@ ExecStart=/usr/local/bin/etcd \\
   --listen-client-urls https://\${INTERNAL_IP}:2379,https://127.0.0.1:2379 \\
   --advertise-client-urls https://\${INTERNAL_IP}:2379 \\
   --initial-cluster-token etcd-cluster-0 \\
-  --initial-cluster ${CONTROLLER_PREFIX}-0=https://10.240.0.10:2380,${CONTROLLER_PREFIX}-1=https://10.240.0.11:2380,${CONTROLLER_PREFIX}-2=https://10.240.0.12:2380 \\
+  --initial-cluster ${INITIAL_CLUSTER} \\
   --initial-cluster-state new \\
   --data-dir=/var/lib/etcd
 Restart=on-failure
@@ -81,7 +89,7 @@ sudo systemctl restart etcd
 CMDEOF
 )
 
-for instance in ${CONTROLLER_PREFIX}-{0..2}; do
+for instance in "${ALL_CONTROLLERS[@]}"; do
   gcloud compute ssh ${instance} --ssh-key-file=${SSH_KEY_FILE} --command="$CMD" &
 done
 
@@ -89,7 +97,7 @@ wait
 
 logmsg "Verification: List the etcd cluster members:"
 
-gcloud compute ssh ${CONTROLLER_PREFIX}-0 --ssh-key-file=${SSH_KEY_FILE} --command="
+gcloud compute ssh ${ALL_CONTROLLERS[@]:0:1} --ssh-key-file=${SSH_KEY_FILE} --command="
   sudo ETCDCTL_API=3 etcdctl member list \
     --endpoints=https://127.0.0.1:2379 \
     --cacert=/etc/etcd/ca.pem \
